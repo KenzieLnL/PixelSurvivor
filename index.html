@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Survivor - Optimized Limits</title>
+    <style>
+        :root {
+            --primary: #4ade80;
+            --danger: #f87171;
+            --coin: #fbbf24;
+            --bg: #0f172a;
+            --ability: #a855f7;
+            --sword: #60a5fa;
+            --ui-panel: rgba(30, 41, 59, 0.95);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            user-select: none;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            pointer-events: auto;
+            text-align: center;
+        }
+
+        .menu-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .menu-content h1 {
+            color: var(--primary); 
+            font-size: 52px; 
+            margin: 0; 
+            text-shadow: 6px 6px #000; 
+            line-height: 1;
+        }
+
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .pixel-box {
+            background: rgba(15, 23, 42, 0.9);
+            border: 4px solid #334155;
+            padding: 12px;
+            box-shadow: 4px 4px 0px #000;
+        }
+
+        .hp-container {
+            width: 180px;
+            height: 16px;
+            background: #451a1a;
+            border: 3px solid #fff;
+            margin-top: 5px;
+        }
+
+        #hp-bar {
+            width: 100%;
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease-out;
+        }
+
+        .modal {
+            background: var(--ui-panel);
+            border: 6px solid #334155;
+            padding: 30px;
+            text-align: center;
+            width: 85%;
+            max-width: 420px;
+            max-height: 90vh; /* Responsive scroll for short screens */
+            overflow-y: auto;
+            box-shadow: 10px 10px 0px #000;
+            pointer-events: auto;
+        }
+
+        .btn-pixel {
+            background: var(--primary);
+            border: none;
+            padding: 15px 25px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #166534;
+            margin: 10px 0;
+            width: 100%;
+            color: #000;
+            transition: transform 0.1s;
+        }
+
+        .btn-pixel:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px #166534; }
+        .btn-pixel:disabled { background: #475569; box-shadow: 4px 4px 0px #1e293b; opacity: 0.6; cursor: not-allowed; }
+        
+        .btn-secondary { background: #64748b; box-shadow: 4px 4px 0px #334155; }
+        .btn-danger { background: var(--danger); box-shadow: 4px 4px 0px #991b1b; }
+
+        .upgrade-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0f172a;
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px solid #334155;
+            text-align: left;
+        }
+
+        .ability-choice-container { display: flex; gap: 15px; margin-top: 20px; }
+        .ability-card {
+            flex: 1;
+            background: #334155;
+            border: 3px solid #64748b;
+            padding: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .ability-card:hover { transform: scale(1.05); border-color: var(--ability); }
+        .ability-name { color: var(--ability); font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+        .ability-desc { font-size: 10px; color: #cbd5e1; }
+
+        .active-abilities {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            pointer-events: none;
+            width: 90%;
+        }
+        .ability-tag { background: var(--ability); padding: 2px 8px; font-size: 10px; border-radius: 4px; text-transform: uppercase; white-space: nowrap; margin-bottom: 5px; }
+
+        #bonus-toast {
+            position: absolute;
+            bottom: 220px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--coin);
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            font-size: 24px;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+        }
+
+        .touch-interface {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            display: none;
+            pointer-events: none;
+        }
+
+        #joy-zone {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 150px;
+            height: 150px;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #joy-base { width: 100px; height: 100px; background: rgba(255,255,255,0.05); border: 4px solid rgba(255,255,255,0.2); border-radius: 50%; position: relative; }
+        #joy-knob { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); }
+
+        .action-zone { position: absolute; bottom: 40px; right: 40px; pointer-events: auto; display: flex; flex-direction: column; gap: 20px; }
+        .btn-round { width: 80px; height: 80px; background: var(--danger); border: 4px solid #fff; border-radius: 50%; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 4px 4px 0px rgba(0,0,0,0.5); }
+        #btn-shop-touch { width: 60px; height: 60px; background: var(--coin); align-self: flex-end; }
+
+        .hidden { display: none !important; }
+
+        /* ==================================================
+           RESPONSIVE MEDIA QUERIES UNTUK HP & TABLET
+           ================================================== */
+        
+        /* Layar Medium (Tablet & HP Mode Landscape) */
+        @media (max-width: 768px) {
+            .menu-content h1 { font-size: 40px; text-shadow: 4px 4px #000; }
+            .hud { top: 10px; left: 10px; right: 10px; }
+            .modal { padding: 20px; width: 95%; }
+            .btn-pixel { padding: 12px 20px; font-size: 16px; margin: 8px 0; }
+            
+            /* Gunakan scale untuk mengecilkan kontrol tanpa mengubah logika JS */
+            #joy-zone { transform: scale(0.85); transform-origin: bottom left; left: 20px; bottom: 20px; }
+            .action-zone { transform: scale(0.85); transform-origin: bottom right; right: 20px; bottom: 20px; }
+        }
+
+        /* Layar Kecil (HP Mode Portrait) */
+        @media (max-width: 480px) {
+            .menu-content h1 { font-size: 32px; text-shadow: 3px 3px #000; }
+            .menu-content p { font-size: 14px; margin: 10px 0 25px 0; }
+            
+            .pixel-box { padding: 6px; border-width: 3px; box-shadow: 2px 2px 0px #000; }
+            .pixel-box > div { font-size: 10px !important; }
+            .hp-container { width: 90px; height: 12px; border-width: 2px; }
+            
+            #btn-hud-retry { font-size: 10px !important; padding: 4px 8px !important; top: 0px !important; white-space: nowrap; }
+            
+            .modal { padding: 15px; border-width: 4px; }
+            .modal h2 { font-size: 18px; margin-bottom: 10px; }
+            .btn-pixel { padding: 10px 15px; font-size: 14px; }
+            
+            .upgrade-row { padding: 6px; font-size: 12px; }
+            .upgrade-row button { padding: 6px !important; width: 70px !important; font-size: 12px !important; margin: 0; }
+            
+            .ability-choice-container { flex-direction: column; gap: 10px; margin-top: 10px; }
+            .ability-card { padding: 10px; }
+            
+            /* Perkecil lagi UI Sentuh untuk HP layar sempit */
+            #joy-zone { transform: scale(0.7); transform-origin: bottom left; left: 10px; bottom: 10px; }
+            .action-zone { transform: scale(0.7); transform-origin: bottom right; right: 10px; bottom: 10px; }
+            
+            #bonus-toast { font-size: 18px; bottom: 150px; }
+        }
+
+        /* Layar Sangat Sempit (iPhone SE dsb) */
+        @media (max-width: 360px) {
+            .hp-container { width: 70px; }
+            #btn-hud-retry { font-size: 9px !important; transform: translateX(-50%) scale(0.9); }
+        }
+
+        /* Layar Pendek (Landscape HP) */
+        @media (max-height: 500px) {
+            .menu-content h1 { font-size: 30px; }
+            .menu-content p { margin: 5px 0 15px 0; }
+            .modal { max-height: 85vh; padding: 10px 15px; }
+            .upgrade-row { margin: 5px 0; padding: 5px; }
+            #bonus-toast { bottom: 50%; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        
+        <!-- MENU UTAMA -->
+        <div id="screen-main" class="screen">
+            <div class="menu-content">
+                <h1 data-t="title">PIXEL SURVIVOR</h1>
+                <p style="color: #94a3b8;" data-t="tagline">Bertahan daripada serangan zombi!</p>
+                <div style="width: 100%; max-width: 280px;">
+                    <button id="btn-play" class="btn-pixel" data-t="play">MAIN</button>
+                    <button id="btn-settings" class="btn-pixel btn-secondary" data-t="settings">TETAPAN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TETAPAN -->
+        <div id="screen-settings" class="screen hidden">
+            <div class="modal">
+                <h2 style="color: var(--primary);" data-t="settings_title">TETAPAN</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 20px;">
+                    <span data-t="language" style="font-size: 14px; font-weight: bold;">BAHASA</span>
+                    <button id="btn-lang-toggle" class="btn-pixel" style="width: auto; padding: 10px 20px; margin: 0;">MS</button>
+                </div>
+                <button id="btn-settings-back" class="btn-pixel btn-secondary" data-t="back">KEMBALI</button>
+            </div>
+        </div>
+
+        <!-- TAMAT PERMAINAN -->
+        <div id="screen-gameover" class="screen hidden" style="background: rgba(15, 23, 42, 0.85);">
+            <div class="modal">
+                <h1 id="gameover-title" style="color: var(--danger); margin-top: 0;">TAMAT</h1>
+                <p id="gameover-stats" style="font-size: 18px; margin: 15px 0; font-weight: bold;"></p>
+                <button id="btn-retry" class="btn-pixel" data-t="retry">CUBA LAGI</button>
+                <button id="btn-to-menu" class="btn-pixel btn-secondary" data-t="to_menu">MENU UTAMA</button>
+            </div>
+        </div>
+
+        <!-- HUD PERMAINAN -->
+        <div id="game-hud" class="hud">
+            <div class="pixel-box">
+                <div style="font-size: 14px;"><span data-t="wave">GELOMBANG</span>: <span id="current-wave">1</span>/30</div>
+                <div style="font-size: 12px; color: #94a3b8;"><span data-t="rem">SISA</span>: <span id="enemy-count">0</span></div>
+                <div style="color: var(--coin); margin-top: 5px;"><span data-t="coins">KOIN</span>: <span id="coins">0</span></div>
+            </div>
+            
+            <!-- Butang Retry Baru di HUD -->
+            <button id="btn-hud-retry" class="btn-pixel btn-danger" style="pointer-events: auto; position: absolute; left: 50%; transform: translateX(-50%); top: 0; margin: 0; padding: 5px 15px; font-size: 12px; width: auto; z-index: 10;" data-t="retry">CUBA LAGI</button>
+
+            <div class="pixel-box">
+                <div style="font-size: 12px; margin-bottom: 2px;" data-t="hp">HP PEMAIN</div>
+                <div class="hp-container"><div id="hp-bar"></div></div>
+            </div>
+        </div>
+
+        <!-- KEDAI -->
+        <div id="screen-shop" class="screen hidden" style="background: rgba(15, 23, 42, 0.7);">
+            <div class="modal">
+                <h2 style="color: var(--coin); margin-top: 0;" data-t="shop_title">KEDAI UPGRADE</h2>
+                <div id="shop-items"></div>
+                <button id="btn-close-shop" class="btn-pixel btn-danger" data-t="close_shop">KEMBALI</button>
+            </div>
+        </div>
+
+        <!-- PEMILIHAN ABILITY -->
+        <div id="screen-ability" class="screen hidden" style="background: rgba(15, 23, 42, 0.7);">
+            <div class="modal">
+                <h2 id="ability-title" style="color: var(--ability); margin-top: 0;" data-t="ability_pick">PILIH ABILITY</h2>
+                <p id="ability-subtitle" style="font-size: 12px; color: #cbd5e1; margin-bottom: 15px;">Pilih satu kekuatan rahasia.</p>
+                <div class="ability-choice-container" id="ability-choices"></div>
+            </div>
+        </div>
+
+        <div id="bonus-toast">BONUS!</div>
+        <div class="active-abilities" id="active-abilities-list"></div>
+
+        <!-- KAWALAN MOBILE -->
+        <div id="mobile-interface" class="touch-interface">
+            <div id="joy-zone">
+                <div id="joy-base"><div id="joy-knob"></div></div>
+            </div>
+            <div class="action-zone">
+                <div class="btn-round" id="btn-shop-touch" data-t="btn_shop">KEDAI</div>
+                <div class="btn-round" id="btn-shoot-touch" data-t="btn_shoot">SERANG</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const I18N = {
+            ms: {
+                title: "PIXEL SURVIVOR",
+                tagline: "Bertahan daripada serangan zombi!",
+                play: "MAIN",
+                settings: "TETAPAN",
+                settings_title: "TETAPAN",
+                language: "BAHASA",
+                back: "KEMBALI",
+                retry: "CUBA LAGI",
+                to_menu: "MENU UTAMA",
+                wave: "GELOMBANG",
+                rem: "SISA",
+                coins: "KOIN",
+                hp: "HP PEMAIN",
+                shop_title: "KEDAI UPGRADE",
+                close_shop: "KEMBALI BERPERANG",
+                ability_pick: "PILIH ABILITY",
+                btn_shop: "KEDAI",
+                btn_shoot: "SERANG",
+                win: "KEMENANGAN!",
+                over: "TAMAT PERMAINAN",
+                final_wave: "GELOMBANG TERAKHIR: ",
+                class_choice: "Pilih kelas pertempuran anda.",
+                ab_choice: "Pilih satu kekuatan rahasia."
+            },
+            en: {
+                title: "PIXEL SURVIVOR",
+                tagline: "Survive the zombie onslaught!",
+                play: "PLAY",
+                settings: "SETTINGS",
+                settings_title: "SETTINGS",
+                language: "LANGUAGE",
+                back: "BACK",
+                retry: "RETRY",
+                to_menu: "MAIN MENU",
+                wave: "WAVE",
+                rem: "LEFT",
+                coins: "COINS",
+                hp: "PLAYER HP",
+                shop_title: "UPGRADE SHOP",
+                close_shop: "BACK TO BATTLE",
+                ability_pick: "PICK ABILITY",
+                btn_shop: "SHOP",
+                btn_shoot: "FIRE",
+                win: "VICTORY!",
+                over: "GAME OVER",
+                final_wave: "FINAL WAVE: ",
+                class_choice: "Choose your path of combat.",
+                ab_choice: "Choose a secret power."
+            }
+        };
+
+        let currentLang = 'ms';
+        const MAX_ENEMIES_ON_SCREEN = 15; // Had zombi serentak
+
+        function updateLanguageUI() {
+            document.querySelectorAll('[data-t]').forEach(el => {
+                const key = el.getAttribute('data-t');
+                el.innerText = I18N[currentLang][key] || key;
+            });
+            document.getElementById('btn-lang-toggle').innerText = currentLang.toUpperCase();
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+        let wave = 1;
+        let coins = 0;
+        let running = false;
+        let paused = false;
+        let enemies = [];
+        let bullets = [];
+        let enemiesToSpawn = 0;
+        let enemiesRemaining = 0;
+        let isWaveActive = false;
+        let nextSpawnTime = 0;
+        let currentMedkitPrice = 30;
+        let ticker = 0;
+
+        const player = {
+            x: 0, y: 0, hp: 100, maxHp: 100, speed: 2.2,
+            damage: 25, fireRate: 750, visualAngle: 0,
+            levels: { damage: 1, fireRate: 1, maxHp: 1 },
+            invincibleUntil: 0, radius: 12, lastWalkAngle: 0,
+            isSwordsman: false, abilities: new Set(),
+            killCount: 0, hitCount: 0, speedblitzActive: false,
+            speedblitzUntil: 0, swordAngle: 0
+        };
+
+        const BOSS_SCHEDULE = {
+            7: { normal: 1 }, 10: { normal: 1 }, 13: { fast: 1 }, 14: { normal: 1 },
+            17: { fast: 1 }, 18: { fast: 2 }, 20: { slow: 1 }, 23: { slow: 2 },
+            24: { normal: 1 }, 25: { fast: 2 }, 27: { normal: 1 }, 29: { slow: 4 },
+            30: { fast: 2, slow: 4, final: 1 }
+        };
+
+        const ABILITY_LIST = [
+            { id: 'critical', name: 'Critical Hit', desc: '30% Chance 1.8x Damage', conflicts: [] },
+            { id: 'gatling', name: 'Gatling Gun', desc: '1.5x FireRate, -40% Damage', conflicts: ['sniper', 'swordsman'] },
+            { id: 'shotgun', name: 'Shotgun', desc: 'Triple Spread Shot', conflicts: ['swordsman'] },
+            { id: 'lich', name: 'Lich King', desc: '+5 HP on Kill', conflicts: [] },
+            { id: 'sniper', name: 'Sniper', desc: '2x Damage, 0.7x FireRate', conflicts: ['gatling', 'swordsman'] },
+            { id: 'shockwave', name: 'Shockwave', desc: 'Knockback enemies', conflicts: ['shield'] },
+            { id: 'tank', name: 'Tank', desc: '-25% Taken Dmg, 0.7x Speed', conflicts: ['speedblitz'] },
+            { id: 'shield', name: 'Shield', desc: '+5s I-Frame on Hit', conflicts: ['shockwave'] },
+            { id: 'electric', name: 'Electric', desc: 'Chain Lightning every 4th hit', conflicts: ['swordsman'] },
+            { id: 'speedblitz', name: 'Speedblitz', desc: '10 Kills = 1s Speed & I-Frame', conflicts: ['tank'] },
+            { id: 'blazing', name: 'Blazing', desc: 'Every 5 Kills: Area Explosion', req: 'swordsman' },
+            { id: 'katana', name: 'Katana', desc: '+0.5 Swing/s, 0.7x Damage', req: 'swordsman' },
+            { id: 'solo', name: 'Solo', desc: 'Every 7 Kills: 2x Boss Damage', req: 'swordsman' },
+            { id: 'adrenaline', name: 'Adrenaline', desc: 'HP < 30%: 1.25x Damage', req: 'swordsman' }
+        ];
+
+        const damageProgression = [25, 50, 100, 175, 300];
+        const fireRateProgression = [750, 650, 500, 350, 200];
+        const priceList = {
+            damage: [75, 225, 600, 1500],
+            fireRate: [120, 300, 750, 1800],
+            maxHp: [150, 450, 1200]
+        };
+
+        const keys = {};
+        const joy = { active: false, x: 0, y: 0, touchId: null };
+        const mouse = { x: 0, y: 0, down: false };
+
+        window.addEventListener('keydown', e => { 
+            keys[e.key.toLowerCase()] = true; 
+            if (e.key.toLowerCase() === 'e' && running && !paused) toggleShop();
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        window.addEventListener('mousedown', () => mouse.down = true);
+        window.addEventListener('mouseup', () => mouse.down = false);
+        window.addEventListener('resize', () => { 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+        });
+
+        const joyBase = document.getElementById('joy-base');
+        const joyKnob = document.getElementById('joy-knob');
+        document.getElementById('joy-zone').addEventListener('touchstart', e => {
+            if (joy.active) return;
+            const t = e.changedTouches[0];
+            joy.active = true; joy.touchId = t.identifier;
+            updateJoy(t);
+        }, {passive: false});
+
+        window.addEventListener('touchmove', e => {
+            if (!joy.active) return;
+            for (let t of e.changedTouches) if (t.identifier === joy.touchId) updateJoy(t);
+        }, {passive: false});
+
+        window.addEventListener('touchend', e => {
+            for (let t of e.changedTouches) if (t.identifier === joy.touchId) {
+                joy.active = false; joy.x = 0; joy.y = 0;
+                joyKnob.style.transform = `translate(-50%, -50%)`;
+            }
+        });
+
+        function updateJoy(t) {
+            const r = joyBase.getBoundingClientRect();
+            const cx = r.left + r.width/2, cy = r.top + r.height/2;
+            const dx = t.clientX - cx, dy = t.clientY - cy;
+            // Radius joystick tetap sama dalam logika JS, skalanya hanya visual via CSS
+            const dist = Math.min(50, Math.hypot(dx, dy));
+            const ang = Math.atan2(dy, dx);
+            joy.x = Math.cos(ang) * (dist/50); joy.y = Math.sin(ang) * (dist/50);
+            joyKnob.style.transform = `translate(calc(-50% + ${Math.cos(ang)*dist}px), calc(-50% + ${Math.sin(ang)*dist}px))`;
+        }
+
+        document.getElementById('btn-shoot-touch').addEventListener('touchstart', e => { e.preventDefault(); mouse.down = true; });
+        document.getElementById('btn-shoot-touch').addEventListener('touchend', () => mouse.down = false);
+        document.getElementById('btn-shop-touch').addEventListener('touchstart', e => { e.preventDefault(); toggleShop(); });
+
+        class Bullet {
+            constructor(x, y, ang, dmg) {
+                this.x = x; this.y = y;
+                this.vx = Math.cos(ang) * 12; this.vy = Math.sin(ang) * 12;
+                this.dmg = dmg; this.active = true;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.active = false;
+            }
+            draw() { ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill(); }
+        }
+
+        class Zombi {
+            constructor(type = 'normal') {
+                const side = Math.floor(Math.random()*4);
+                if(side === 0) { this.x = -150; this.y = Math.random()*canvas.height; }
+                else if(side === 1) { this.x = canvas.width+150; this.y = Math.random()*canvas.height; }
+                else if(side === 2) { this.x = Math.random()*canvas.width; this.y = -150; }
+                else { this.x = Math.random()*canvas.width; this.y = canvas.height+150; }
+                
+                this.type = type; this.angle = 0;
+                this.isBoss = type.includes('boss') || type === 'final';
+                this.lastHitBySword = 0;
+
+                const scaling = (w, s=1) => Math.pow(1.13, w - s);
+                if (type === 'final') { this.hp = 125000; this.speed = 0.8; this.radius = 45; this.scale = 4.0; this.color = '#1e1b4b'; this.skin = '#7c3aed'; this.damage = 50; }
+                else if (type === 'boss_normal') { this.hp = 250 * scaling(wave); this.speed = 0.65; this.radius = 28; this.scale = 2.5; this.color = '#a855f7'; this.skin = '#d8b4fe'; this.damage = 30; }
+                else if (type === 'boss_fast') { this.hp = 200 * scaling(wave); this.speed = 1.3; this.radius = 24; this.scale = 2.2; this.color = '#1d4ed8'; this.skin = '#93c5fd'; this.damage = 30; }
+                else if (type === 'boss_slow') { this.hp = 400 * scaling(wave); this.speed = 0.35; this.radius = 35; this.scale = 3.2; this.color = '#7f1d1d'; this.skin = '#ef4444'; this.damage = 30; }
+                else if (type === 'fast') { this.hp = 50 * scaling(wave, 2); this.speed = 1.4; this.radius = 12; this.scale = 1; this.color = '#2563eb'; this.skin = '#93c5fd'; this.damage = 15; }
+                else if (type === 'slow') { this.hp = 180 * scaling(wave, 4); this.speed = 0.5; this.radius = 16; this.scale = 1.4; this.color = '#78350f'; this.skin = '#d97706'; this.damage = 15; }
+                else { this.hp = 100 * scaling(wave); this.speed = 0.8; this.radius = 12; this.scale = 1; this.color = '#22c55e'; this.skin = '#86efac'; this.damage = 15; }
+                this.maxHp = this.hp;
+            }
+            update() {
+                const ang = Math.atan2(player.y - this.y, player.x - this.x);
+                this.angle = ang; this.x += Math.cos(ang) * this.speed; this.y += Math.sin(ang) * this.speed;
+                for (let other of enemies) {
+                    if (other === this) continue;
+                    const d = Math.hypot(other.x - this.x, other.y - this.y);
+                    const minDist = this.radius + other.radius + 2;
+                    if (d < minDist) {
+                        const force = (minDist - d) / 4; const a = Math.atan2(other.y - this.y, other.x - this.x);
+                        const weight = this.isBoss ? 0.05 : 0.5;
+                        this.x -= Math.cos(a) * force * weight; this.y -= Math.sin(a) * force * weight;
+                        other.x += Math.cos(a) * force * (1-weight); other.y += Math.sin(a) * force * (1-weight);
+                    }
+                }
+            }
+            draw() {
+                drawPixelMan(ctx, this.x, this.y, this.angle, true, this.color, this.skin, this.scale);
+                const barWidth = this.radius * 2.5;
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(this.x - barWidth/2, this.y - (this.radius*this.scale*0.4 + 20), barWidth, 6);
+                ctx.fillStyle = this.isBoss ? '#a855f7' : '#ef4444';
+                ctx.fillRect(this.x - barWidth/2, this.y - (this.radius*this.scale*0.4 + 20), (this.hp/this.maxHp)*barWidth, 6);
+            }
+        }
+
+        function initWave() {
+            isWaveActive = false; enemies = []; bullets = [];
+            document.getElementById('game-hud').style.opacity = '1';
+            enemiesToSpawn = Math.floor(10 + (wave * 3.5));
+            let bossCount = 0;
+            if (BOSS_SCHEDULE[wave]) {
+                const s = BOSS_SCHEDULE[wave];
+                bossCount = (s.normal || 0) + (s.fast || 0) + (s.slow || 0) + (s.final || 0);
+            }
+            enemiesRemaining = enemiesToSpawn + bossCount;
+            updateUI();
+            
+            if (wave === 5 && !player.isSwordsman && !player.abilities.has('gunner_class')) { showClassChoice(); }
+            else if (wave % 5 === 0 && wave > 0) { showAbilityMenu(); }
+            else { isWaveActive = true; nextSpawnTime = Date.now() + 1000; }
+        }
+
+        function spawnEnemy() {
+            // Periksa had zombi di skrin
+            if (enemies.length >= MAX_ENEMIES_ON_SCREEN) return;
+
+            const now = Date.now();
+            if (now < nextSpawnTime) return;
+            
+            let type = 'normal';
+            const s = BOSS_SCHEDULE[wave];
+            if (s) {
+                if (s.final > 0) { type = 'final'; s.final--; }
+                else if (s.normal > 0) { type = 'boss_normal'; s.normal--; }
+                else if (s.fast > 0) { type = 'boss_fast'; s.fast--; }
+                else if (s.slow > 0) { type = 'boss_slow'; s.slow--; }
+                else if (enemiesToSpawn > 0) { type = getRegularType(); enemiesToSpawn--; }
+                else return;
+            } else if (enemiesToSpawn > 0) { type = getRegularType(); enemiesToSpawn--; }
+            else return;
+
+            enemies.push(new Zombi(type));
+            nextSpawnTime = now + Math.max(200, 850 - (wave * 30));
+        }
+
+        function getRegularType() {
+            const r = Math.random();
+            if (wave >= 4 && r < 0.25) return 'slow';
+            if (wave >= 2 && r < 0.2) return 'fast';
+            return 'normal';
+        }
+
+        function drawPixelMan(ctx, x, y, angle, isWalking, colorMain, colorSkin, scale = 1, alpha = 1) {
+            ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(angle); ctx.scale(scale, scale);
+            const swing = isWalking ? Math.sin(ticker * 0.15) * 4 : 0;
+            ctx.fillStyle = '#000'; ctx.fillRect(-6, -7 + swing, 5, 5); ctx.fillRect(-6, 2 - swing, 5, 5);
+            ctx.fillStyle = colorMain; ctx.fillRect(-8, -6, 12, 12);
+            ctx.fillStyle = colorSkin; ctx.fillRect(-4, -5, 10, 10);
+            ctx.fillStyle = '#000'; ctx.fillRect(4, -3, 2, 2); ctx.fillRect(4, 1, 2, 2);
+            ctx.restore();
+        }
+
+        function start(fromRetry = false) {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            player.x = canvas.width/2; player.y = canvas.height/2;
+            player.hp = 100; player.maxHp = 100; player.levels = { damage: 1, fireRate: 1, maxHp: 1 };
+            player.damage = damageProgression[0]; player.fireRate = fireRateProgression[0];
+            player.abilities.clear(); player.killCount = 0; player.hitCount = 0;
+            player.isSwordsman = false; player.swordAngle = 0;
+            document.getElementById('active-abilities-list').innerHTML = '';
+            wave = 1; coins = 0; running = true; paused = false; currentMedkitPrice = 30;
+
+            hideAllScreens();
+            document.getElementById('game-hud').style.opacity = '1';
+            if (isTouch) document.getElementById('mobile-interface').style.display = 'block';
+            
+            initWave();
+            if (!fromRetry) requestAnimationFrame(gameLoop);
+        }
+
+        function toggleShop() {
+            paused = !paused;
+            const shop = document.getElementById('screen-shop');
+            if (paused) { shop.classList.remove('hidden'); renderShop(); }
+            else { shop.classList.add('hidden'); }
+        }
+
+        function renderShop() {
+            const container = document.getElementById('shop-items');
+            container.innerHTML = '';
+            document.getElementById('coins').innerText = coins;
+            const items = [
+                { id: 'heal', name: currentLang === 'ms' ? 'Medkit' : 'Medkit' },
+                { id: 'damage', name: currentLang === 'ms' ? 'Serangan' : 'Damage' },
+                { id: 'fireRate', name: player.isSwordsman ? (currentLang === 'ms' ? 'Ayun' : 'Swing') : (currentLang === 'ms' ? 'Laju' : 'Fire Rate') },
+                { id: 'maxHp', name: currentLang === 'ms' ? 'Perisai' : 'Shield/HP' }
+            ];
+            items.forEach(item => {
+                const lv = player.levels[item.id] || 1;
+                let cost = (item.id === 'heal') ? currentMedkitPrice : (priceList[item.id][lv - 1] || 9999);
+                let isMax = (item.id !== 'heal' && lv >= (item.id === 'maxHp' ? 4 : 5));
+                const row = document.createElement('div');
+                row.className = 'upgrade-row';
+                row.innerHTML = `<div>${item.name}</div><button class="btn-pixel" style="width:100px; padding:10px; font-size:14px;" onclick="buy('${item.id}', ${cost})" ${coins < cost || isMax ? 'disabled' : ''}>${isMax ? 'MAX' : '$'+cost}</button>`;
+                container.appendChild(row);
+            });
+        }
+
+        window.buy = (id, cost) => {
+            if (coins < cost) return; coins -= cost;
+            if (id === 'damage') { player.levels.damage++; player.damage = damageProgression[player.levels.damage-1]; }
+            else if (id === 'heal') { player.hp = Math.min(player.maxHp, player.hp + 50); currentMedkitPrice = Math.floor(currentMedkitPrice * 1.5); }
+            else if (id === 'fireRate') { player.levels.fireRate++; player.fireRate = fireRateProgression[player.levels.fireRate-1]; }
+            else if (id === 'maxHp') { player.maxHp += 50; player.hp += 50; player.levels.maxHp++; }
+            updateUI(); renderShop();
+        };
+
+        function showAbilityMenu() {
+            paused = true;
+            const screen = document.getElementById('screen-ability');
+            const container = document.getElementById('ability-choices');
+            document.getElementById('ability-title').innerText = I18N[currentLang].ability_pick;
+            document.getElementById('ability-subtitle').innerText = I18N[currentLang].ab_choice;
+            container.innerHTML = '';
+            
+            let available = ABILITY_LIST.filter(a => {
+                if (player.abilities.has(a.id)) return false;
+                if (a.id === 'swordsman' || a.id === 'gunner_class') return false;
+                if (a.req === 'swordsman' && !player.isSwordsman) return false;
+                for (let c of a.conflicts) if (player.abilities.has(c)) return false;
+                return true;
+            });
+            available.sort(() => Math.random() - 0.5);
+            available.slice(0, 2).forEach(a => {
+                const card = document.createElement('div');
+                card.className = 'ability-card';
+                card.innerHTML = `<div class="ability-name">${a.name}</div><div class="ability-desc">${a.desc}</div>`;
+                card.onclick = () => {
+                    player.abilities.add(a.id); addAbilityTag(a.name);
+                    screen.classList.add('hidden'); paused = false; isWaveActive = true;
+                    showBonus(`${a.name} OK!`);
+                };
+                container.appendChild(card);
+            });
+            screen.classList.remove('hidden');
+        }
+
+        function showClassChoice() {
+            paused = true;
+            const screen = document.getElementById('screen-ability');
+            const container = document.getElementById('ability-choices');
+            document.getElementById('ability-title').innerText = "PILIH KELAS";
+            document.getElementById('ability-subtitle').innerText = I18N[currentLang].class_choice;
+            container.innerHTML = '';
+
+            const gunnerPool = ABILITY_LIST.filter(a => ['critical', 'shotgun', 'sniper', 'gatling', 'electric'].includes(a.id));
+            const randomAbility = gunnerPool[Math.floor(Math.random() * gunnerPool.length)];
+
+            const choices = [
+                { type: 'sword', name: 'Elite Swordsman', desc: 'Pertempuran jarak dekat. +15% Kerosakan.', color: 'var(--sword)' },
+                { type: 'gunner', name: `Gunner: ${randomAbility.name}`, desc: `${randomAbility.desc}. Pakar senjata api.`, color: 'var(--danger)', ability: randomAbility }
+            ];
+
+            choices.forEach(c => {
+                const card = document.createElement('div'); card.className = 'ability-card'; card.style.borderColor = c.color;
+                card.innerHTML = `<div class="ability-name" style="color:${c.color}">${c.name}</div><div class="ability-desc">${c.desc}</div>`;
+                card.onclick = () => {
+                    if (c.type === 'sword') { player.isSwordsman = true; player.abilities.add('swordsman'); addAbilityTag('Swordsman'); }
+                    else { player.abilities.add('gunner_class'); player.abilities.add(c.ability.id); addAbilityTag(c.ability.name); }
+                    screen.classList.add('hidden'); paused = false; isWaveActive = true;
+                };
+                container.appendChild(card);
+            });
+            screen.classList.remove('hidden');
+        }
+
+        function addAbilityTag(name) {
+            const tag = document.createElement('span'); tag.className = 'ability-tag'; tag.innerText = name;
+            document.getElementById('active-abilities-list').appendChild(tag);
+        }
+
+        function updateUI() {
+            document.getElementById('current-wave').innerText = wave;
+            document.getElementById('enemy-count').innerText = enemiesRemaining;
+            document.getElementById('coins').innerText = coins;
+            document.getElementById('hp-bar').style.width = (player.hp / player.maxHp * 100) + '%';
+        }
+
+        function showBonus(msg) {
+            const toast = document.getElementById('bonus-toast');
+            toast.innerText = msg; toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 2000);
+        }
+
+        function gameOver(win = false) {
+            running = false;
+            const screen = document.getElementById('screen-gameover');
+            const title = document.getElementById('gameover-title');
+            const stats = document.getElementById('gameover-stats');
+            
+            title.innerText = win ? I18N[currentLang].win : I18N[currentLang].over;
+            title.style.color = win ? 'var(--primary)' : 'var(--danger)';
+            stats.innerText = I18N[currentLang].final_wave + wave;
+            
+            document.getElementById('game-hud').style.opacity = '0';
+            if (isTouch) document.getElementById('mobile-interface').style.display = 'none';
+            screen.classList.remove('hidden');
+        }
+
+        function hideAllScreens() {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        }
+
+        function gameLoop() {
+            if (!running) return;
+            requestAnimationFrame(gameLoop);
+            if (paused) return;
+
+            const now = Date.now();
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let mx = 0, my = 0;
+            if (joy.active) { mx = joy.x; my = joy.y; }
+            else { if (keys.w) my = -1; if (keys.s) my = 1; if (keys.a) mx = -1; if (keys.d) mx = 1; }
+            
+            let curSpeed = player.speed;
+            if (player.abilities.has('tank')) curSpeed *= 0.7;
+            if (player.speedblitzActive && now < player.speedblitzUntil) curSpeed *= 1.5;
+            else if (player.speedblitzActive) player.speedblitzActive = false;
+
+            if (mx !== 0 || my !== 0) {
+                const mag = Math.hypot(mx, my);
+                player.x += (mx/mag) * curSpeed; player.y += (my/mag) * curSpeed;
+                player.lastWalkAngle = Math.atan2(my, mx);
+            }
+            
+            // Logika ini otomatis menjaga pemain di dalam layar bahkan setelah resize
+            player.x = Math.max(15, Math.min(canvas.width-15, player.x));
+            player.y = Math.max(15, Math.min(canvas.height-15, player.y));
+
+            let nearest = null; let minDist = 180;
+            enemies.forEach(e => { const d = Math.hypot(player.x - e.x, player.y - e.y); if (d < minDist) { minDist = d; nearest = e; } });
+            let targetAngle = player.lastWalkAngle;
+            if (nearest) targetAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+            let diff = targetAngle - player.visualAngle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            player.visualAngle += diff * 0.3;
+
+            if (player.isSwordsman) {
+                let baseSwings = 0.6 + (player.levels.fireRate * 0.3);
+                if (player.abilities.has('katana')) baseSwings += 0.5;
+                player.swordAngle += (baseSwings * Math.PI * 2) / 60;
+
+                const sx = player.x + Math.cos(player.swordAngle) * 60;
+                const sy = player.y + Math.sin(player.swordAngle) * 60;
+                ctx.save(); ctx.translate(sx, sy); ctx.rotate(player.swordAngle + Math.PI/4);
+                ctx.fillStyle = '#e2e8f0'; ctx.fillRect(-2, -20, 4, 30);
+                ctx.fillStyle = '#475569'; ctx.fillRect(-6, 5, 12, 4); ctx.restore();
+            } else {
+                let fr = player.fireRate;
+                if (player.abilities.has('gatling')) fr /= 1.5;
+                if (player.abilities.has('sniper')) fr /= 0.7;
+                if (mouse.down && now - lastFired > fr) {
+                    let d = player.damage;
+                    if (player.abilities.has('gatling')) d *= 0.6;
+                    if (player.abilities.has('sniper')) d *= 2;
+                    if (player.abilities.has('shotgun')) {
+                        bullets.push(new Bullet(player.x, player.y, player.visualAngle-0.2, d));
+                        bullets.push(new Bullet(player.x, player.y, player.visualAngle, d));
+                        bullets.push(new Bullet(player.x, player.y, player.visualAngle+0.2, d));
+                    } else bullets.push(new Bullet(player.x, player.y, player.visualAngle, d));
+                    lastFired = now;
+                }
+            }
+
+            if (isWaveActive) spawnEnemy();
+            if (isWaveActive && enemiesRemaining <= 0) {
+                if (wave < 30) { wave++; initWave(); } else gameOver(true);
+            }
+
+            const isInv = now < player.invincibleUntil || player.speedblitzActive;
+            const pAlpha = isInv ? (Math.sin(ticker * 0.8) > 0 ? 1 : 0.3) : 1;
+            drawPixelMan(ctx, player.x, player.y, player.visualAngle, (mx!==0||my!==0), '#3b82f6', '#fdb494', 1, pAlpha);
+
+            bullets.forEach((b, i) => { b.update(); b.draw(); if (!b.active) bullets.splice(i, 1); });
+
+            enemies.forEach((e, i) => {
+                e.update(); e.draw();
+                const dP = Math.hypot(player.x - e.x, player.y - e.y);
+                if (dP < e.radius + 12 && !isInv) {
+                    let taken = e.damage; if (player.abilities.has('tank')) taken *= 0.75;
+                    player.hp -= taken; player.invincibleUntil = now + (player.abilities.has('shield') ? 5000 : 1200);
+                    updateUI(); if (player.hp <= 0) gameOver();
+                }
+
+                const processHit = (dmg) => {
+                    let finalD = dmg;
+                    if (player.abilities.has('critical') && Math.random() < 0.3) finalD *= 1.8;
+                    if (player.abilities.has('adrenaline') && (player.hp/player.maxHp) < 0.3) finalD *= 1.25;
+                    if (player.abilities.has('solo') && e.isBoss && player.killCount % 7 === 0) finalD *= 2;
+                    e.hp -= finalD; player.hitCount++;
+                    if (player.abilities.has('shockwave')) {
+                        const a = Math.atan2(e.y-player.y, e.x-player.x); e.x += Math.cos(a)*40; e.y += Math.sin(a)*40;
+                    }
+                    if (e.hp <= 0) {
+                        enemiesRemaining--; player.killCount++;
+                        
+                        // Sistem Ganjaran Koin Baru
+                        if (e.isBoss) {
+                            // 40-70 koin asas
+                            let bossReward = Math.floor(Math.random() * 31) + 40;
+                            // 40% peluang ganjaran bonus 100 koin
+                            if (Math.random() < 0.40) {
+                                bossReward += 100;
+                                showBonus("JACKPOT! +100");
+                            }
+                            coins += bossReward;
+                        } else {
+                            coins += 4;
+                        }
+
+                        if (player.abilities.has('lich')) player.hp = Math.min(player.maxHp, player.hp + 5);
+                        if (player.abilities.has('speedblitz') && player.killCount % 10 === 0) { player.speedblitzActive = true; player.speedblitzUntil = Date.now() + 1000; }
+                        enemies.splice(i, 1); updateUI();
+                    }
+                };
+
+                if (player.isSwordsman && now - e.lastHitBySword > 150) {
+                    const sx = player.x + Math.cos(player.swordAngle)*60, sy = player.y + Math.sin(player.swordAngle)*60;
+                    if (Math.hypot(sx-e.x, sy-e.y) < e.radius + 30) {
+                        let sd = player.damage * 1.3; if (player.abilities.has('katana')) sd *= 0.7;
+                        processHit(sd); e.lastHitBySword = now;
+                    }
+                }
+
+                bullets.forEach((b, bi) => {
+                    if (Math.hypot(b.x-e.x, b.y-e.y) < e.radius + 10) { processHit(b.dmg); bullets.splice(bi, 1); }
+                });
+            });
+            ticker++;
+        }
+
+        let lastFired = 0;
+
+        document.getElementById('btn-play').onclick = () => start();
+        document.getElementById('btn-settings').onclick = () => {
+            document.getElementById('screen-main').classList.add('hidden');
+            document.getElementById('screen-settings').classList.remove('hidden');
+        };
+        document.getElementById('btn-settings-back').onclick = () => {
+            document.getElementById('screen-settings').classList.add('hidden');
+            document.getElementById('screen-main').classList.remove('hidden');
+        };
+        document.getElementById('btn-lang-toggle').onclick = () => {
+            currentLang = currentLang === 'ms' ? 'en' : 'ms';
+            updateLanguageUI();
+        };
+        
+        // Butang Retry pada skrin Game Over
+        document.getElementById('btn-retry').onclick = () => start(true);
+        
+        // Butang Retry baru di HUD semasa permainan
+        document.getElementById('btn-hud-retry').onclick = () => {
+            if (!running) return; // Mengelak ralat jika ditekan semasa di menu utama
+            start(true);
+        };
+
+        document.getElementById('btn-to-menu').onclick = () => {
+            hideAllScreens();
+            document.getElementById('screen-main').classList.remove('hidden');
+        };
+        document.getElementById('btn-close-shop').onclick = toggleShop;
+
+        updateLanguageUI();
+    </script>
+</body>
+</html>
